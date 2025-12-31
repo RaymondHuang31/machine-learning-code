@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import warnings
 
 warnings.filterwarnings('ignore')
-# 设置中文字体支持
 plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
@@ -12,13 +11,13 @@ plt.rcParams['axes.unicode_minus'] = False
 class ResultSaver:
     def __init__(self, output_dir='../RF/bosch_output/'):
         self.output_dir = output_dir
-        # 递归创建目录
+
         os.makedirs(output_dir, exist_ok=True)
         self.plot_dir = os.path.join(output_dir, 'plots')
         os.makedirs(self.plot_dir, exist_ok=True)
 
     def save_metrics(self, metrics_dict, filename='metrics.txt'):
-        """保存数值指标到文本文件"""
+
         path = os.path.join(self.output_dir, filename)
         with open(path, 'w', encoding='utf-8') as f:
             for k, v in metrics_dict.items():
@@ -26,7 +25,6 @@ class ResultSaver:
 
 
 class Visualizer:
-    """支持自动保存的可视化类"""
 
     def __init__(self, output_dir='../RF/bosch_output/'):
         self.output_dir = output_dir
@@ -34,11 +32,9 @@ class Visualizer:
         os.makedirs(self.plot_dir, exist_ok=True)
 
     def plot_convergence(self, ae_history, ftrl_history, gbt_history, filename='convergence_analysis.png'):
-        """绘制 AE、FTRL 和 GBT 的收敛曲线 (三子图)"""
-        # 修改为 1行3列
+
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 5))
 
-        # 子图 1: Autoencoder Loss
         if ae_history:
             ax1.plot(ae_history, label='Reconstruction MSE', color='#1f77b4', linewidth=2)
             ax1.set_title('AE Convergence (Unsupervised)', fontsize=12)
@@ -47,7 +43,6 @@ class Visualizer:
             ax1.grid(True, linestyle='--', alpha=0.7)
             ax1.legend()
 
-        # 子图 2: FTRL Loss
         if ftrl_history:
             ax2.plot(ftrl_history, label='Log Loss', color='#ff7f0e', linewidth=2)
             ax2.set_title('FTRL Online Learning Curve', fontsize=12)
@@ -56,7 +51,6 @@ class Visualizer:
             ax2.grid(True, linestyle='--', alpha=0.7)
             ax2.legend()
 
-        # 子图 3: GBT Loss 【新增】
         if gbt_history:
             ax3.plot(gbt_history, label='Training Log Loss', color='#2ca02c', linewidth=2)
             ax3.set_title('GBT Boosting Process', fontsize=12)
@@ -113,14 +107,13 @@ class Visualizer:
         plt.close()
 
     def plot_feature_importance(self, importances, feature_names, top_n=10, filename='feature_importance.png'):
-        """绘制特征重要性 Top-N"""
-        # 排序
+
         sorted_idx = np.argsort(importances)[::-1][:top_n]
         top_features = [feature_names[i] for i in sorted_idx]
         top_scores = [importances[i] for i in sorted_idx]
 
         plt.figure(figsize=(10, 6))
-        # 倒序以便重要性最高的在上面
+
         plt.barh(range(len(top_scores)), top_scores[::-1], align='center', color='skyblue')
         plt.yticks(range(len(top_scores)), top_features[::-1])
         plt.xlabel('Relative Importance Score (Gain)')
@@ -133,7 +126,7 @@ class Visualizer:
         plt.close()
 
     def plot_model_comparison(self, metrics_dict, metric_name='mcc', filename='model_comparison.png'):
-        """绘制多模型性能对比柱状图"""
+
         models = list(metrics_dict.keys())
         scores = [np.mean(metrics_dict[m][metric_name]) for m in models]
 
