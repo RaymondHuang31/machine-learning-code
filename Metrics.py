@@ -3,11 +3,10 @@ import math
 from base import NumpyFunctions
 
 class Metrics:
-    """手写实现评估指标"""
 
     @staticmethod
     def matthews_corrcoef(y_true, y_pred):
-        """手写实现MCC计算"""
+
         tp = tn = fp = fn = 0
         for true, pred in zip(y_true, y_pred):
             if true == 1 and pred == 1: tp += 1
@@ -21,7 +20,7 @@ class Metrics:
 
     @staticmethod
     def confusion_matrix(y_true, y_pred):
-        """混淆矩阵"""
+
         tp = tn = fp = fn = 0
         for true, pred in zip(y_true, y_pred):
             if true == 1 and pred == 1: tp += 1
@@ -32,8 +31,7 @@ class Metrics:
 
     @staticmethod
     def roc_curve(y_true, y_scores):
-        """ROC曲线计算 - 严格返回 3 个值"""
-        # 按分数排序
+
         sorted_indices = NumpyFunctions.argsort(y_scores, reverse=True)
         y_true_sorted = [y_true[i] for i in sorted_indices]
         y_scores_sorted = [y_scores[i] for i in sorted_indices]
@@ -58,7 +56,7 @@ class Metrics:
 
     @staticmethod
     def auc(fpr, tpr):
-        """计算曲线下面积 (使用梯形法则)"""
+
         area = 0.0
         for i in range(len(fpr) - 1):
             area += (fpr[i+1] - fpr[i]) * (tpr[i+1] + tpr[i]) / 2.0
