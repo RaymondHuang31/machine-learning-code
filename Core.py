@@ -5,7 +5,6 @@ import random
 import json
 from datetime import datetime
 
-# 导入项目中所有手写模块
 from Metrics import Metrics
 from CrossValidation import CrossValidation
 from FTRLProximal import FTRLProximal
@@ -16,7 +15,6 @@ from ResultSaver import ResultSaver, Visualizer
 
 
 class BoschSolution:
-    """Bosch 工业大数据全流程解决方案（自动实验记录版）"""
 
     def __init__(self, random_state=42):
         self.random_state = random_state
@@ -69,17 +67,14 @@ class BoschSolution:
         y = df_balanced['Response'].values
         X_raw = df_balanced.drop(['Id', 'Response'], axis=1)
 
-        # 提取特征名
         raw_feature_names = list(X_raw.columns)
         X = self.prepare_features(X_raw)
 
-        # 构造完整特征名
         feature_names = raw_feature_names + ['NaN_Count', 'Row_Mean', 'Row_Std']
 
         return X, y, feature_names
 
     def run_complete_pipeline(self, data_dir='../RF'):
-        # --- 1. 参数设置 ---
         params = {
             "random_state": self.random_state,
             "sample_size": 5000,
@@ -88,29 +83,25 @@ class BoschSolution:
             "ae_encoding_dim": 50,
             "gbt_n_estimators": 500,
             "gbt_n_max_depth": 10,
-            "gbt_FTRL_epochs": 500,  # 稍微增加epoch以展示收敛曲线
+            "gbt_FTRL_epochs": 500,
             "ftrl_alpha": 0.1,
             "blender_lr": 0.1
         }
         self.save_params(params)
         self.log_message(f"实验启动 - ID: {self.timestamp}")
 
-        # --- 2. 加载数据 ---
         X, y, base_feature_names = self.load_and_prepare_all_features(data_dir, sample_size=params["sample_size"])
         X, y = np.array(X), np.array(y)
 
-        # 构造完整特征名列表 (原始 + AE特征)
         ae_feature_names = [f'AE_Feature_{i}' for i in range(params["ae_encoding_dim"])]
         full_feature_names = base_feature_names + ae_feature_names
 
-        # --- 3. 结果存储容器 ---
         models_metrics = {
             'FTRL': {'mcc': [], 'auc': [], 'precision': [], 'recall': []},
             'GBT': {'mcc': [], 'auc': [], 'precision': [], 'recall': []},
             'Stacking': {'mcc': [], 'auc': [], 'precision': [], 'recall': []}
         }
 
-        # 绘图数据收集
         global_feature_importance = np.zeros(len(full_feature_names))
         training_logs = {'ae_loss': [], 'ftrl_loss': [], 'gbt_loss': []}
 
@@ -119,7 +110,6 @@ class BoschSolution:
         oof_y_true = []
         oof_y_pred = []
 
-        # 辅助评估函数
         def evaluate_performance(y_true, y_prob):
             fpr, tpr, _ = self.evaluator.roc_curve(y_true, y_prob)
             auc_val = self.evaluator.auc(fpr, tpr)
@@ -150,10 +140,9 @@ class BoschSolution:
             X_train, y_train = X[train_idx], y[train_idx]
             X_val, y_val = X[val_idx], y[val_idx]
 
-            # --- (A) AE ---
             ae = SimpleAutoencoder(input_dim=X_train.shape[1], encoding_dim=params["ae_encoding_dim"])
             X_train_neg = X_train[y_train == 0]
-            # 捕获训练历史
+
             ae_hist = ae.fit(X_train_neg.tolist(), epochs=params["gbt_ae_epochs"])
 
             X_train_ae = np.array(ae.encode(X_train.tolist()))
@@ -161,14 +150,12 @@ class BoschSolution:
             X_train_comb = np.hstack([X_train, X_train_ae])
             X_val_comb = np.hstack([X_val, X_val_ae])
 
-            # --- (B) GBT ---
             gbt = GBTClassifier(n_estimators=params["gbt_n_estimators"], max_depth=params["gbt_n_max_depth"])
             # gbt.fit(X_train_comb, y_train)
             gbt_hist = gbt.fit(X_train_comb, y_train)
             p_gbt_val = gbt.predict_proba(X_val_comb)[:, 1]
             p_gbt_train = gbt.predict_proba(X_train_comb)[:, 1]
 
-            # 累加特征重要性 (从 GBTClassifier 中获取)
             if hasattr(gbt, 'feature_importances_'):
                 for idx, score in gbt.feature_importances_.items():
                     if idx < len(global_feature_importance):
@@ -180,9 +167,9 @@ class BoschSolution:
             models_metrics['GBT']['precision'].append(pre)
             models_metrics['GBT']['recall'].append(rec)
 
-            # --- (C) FTRL ---
+
             ftrl = FTRLProximal(dim=X_train_comb.shape[1], alpha=params["ftrl_alpha"])
-            # 捕获训练历史
+
             ftrl_hist = ftrl.fit(X_train_comb.tolist(), y_train.tolist(), epochs=params["gbt_FTRL_epochs"])
             p_ftrl_val = np.array(ftrl.predict_proba(X_val_comb.tolist()))[:, 1]
             p_ftrl_train = np.array(ftrl.predict_proba(X_train_comb.tolist()))[:, 1]
@@ -193,7 +180,7 @@ class BoschSolution:
             models_metrics['FTRL']['precision'].append(pre)
             models_metrics['FTRL']['recall'].append(rec)
 
-            # --- (D) Stacking ---
+
             meta_train = np.column_stack([p_gbt_train, p_ftrl_train])
             meta_val = np.column_stack([p_gbt_val, p_ftrl_val])
             blender = LogisticRegression(learning_rate=params["blender_lr"])
@@ -206,18 +193,16 @@ class BoschSolution:
             models_metrics['Stacking']['precision'].append(pre)
             models_metrics['Stacking']['recall'].append(rec)
 
-            # --- 收集绘图数据 ---
-            # 1. 仅记录第一折的训练 Loss 用于绘制收敛曲线
             if fold == 1:
                 training_logs['ae_loss'] = ae_hist
                 training_logs['ftrl_loss'] = ftrl_hist
-                training_logs['gbt_loss'] = gbt_hist  # 【新增】
+                training_logs['gbt_loss'] = gbt_hist
 
-            # 2. 收集 OOF 数据
+
             oof_y_true.extend(y_val)
             oof_y_pred.extend(final_probs)
 
-            # 3. 收集 ROC 数据
+
             fpr, tpr, _ = self.evaluator.roc_curve(y_val, final_probs)
             interp_tpr = np.interp(mean_fpr, fpr, tpr)
             interp_tpr[0] = 0.0
@@ -225,13 +210,11 @@ class BoschSolution:
 
         self.log_message("\n" + "=" * 60)
 
-        # # 打印表格
         # print(f"{'模型架构':<25} | {'平均 MCC':<10} | {'平均 AUC':<10}")
         # print("-" * 55)
         # for m in ['FTRL', 'GBT', 'Stacking']:
         #     print(f"{m:<25} | {np.mean(models_metrics[m]['mcc']):.3f}      | {np.mean(models_metrics[m]['auc']):.3f}")
 
-        # --- 4. 打印表格数据 (Console) ---
         print(f"{'模型架构':<25} | {'平均 MCC':<10} | {'平均 AUC':<10} | {'Precision':<10} | {'Recall':<10}")
         print("-" * 75)
         for model_name in ['FTRL', 'GBT', 'Stacking']:
@@ -242,17 +225,14 @@ class BoschSolution:
 
         self.log_message("正在生成可视化图表...")
 
-        # 图 1: 训练动态与收敛性分析 (Training Dynamics) - 对应论文 7.3
-        # 使用第一折捕获的真实 Loss 数据
         self.visualizer.plot_convergence(
             training_logs['ae_loss'],
             training_logs['ftrl_loss'],
-            training_logs['gbt_loss'],  # 【新增】
+            training_logs['gbt_loss'],
             filename='convergence_analysis.png'
         )
 
-        # 图 2: 特征重要性分析 (Model Interpretability) - 对应论文 7.5
-        global_feature_importance /= 5.0  # 取平均
+        global_feature_importance /= 5.0
         self.visualizer.plot_feature_importance(
             global_feature_importance,
             full_feature_names,
@@ -260,21 +240,18 @@ class BoschSolution:
             filename='feature_importance.png'
         )
 
-        # 图 3: 模型消融实验对比 (Ablation Study) - 对应论文 7.4 表格后
         self.visualizer.plot_model_comparison(
             models_metrics,
             metric_name='mcc',
             filename='model_comparison.png'
         )
 
-        # 图 4: 平均 ROC 曲线
         mean_tpr = np.mean(stacking_tprs, axis=0)
         mean_tpr[-1] = 1.0
         mean_auc = self.evaluator.auc(mean_fpr, mean_tpr)
         self.visualizer.plot_roc_curve(mean_fpr, mean_tpr, mean_auc, title='Stacking 5-Fold Avg ROC',
                                        filename='avg_roc.png')
 
-        # 图 5: 全局混淆矩阵 - 对应论文 7.6
         best_mcc, best_th = -1, 0.5
         for th in np.linspace(0.01, 0.9, 100):
             mcc = self.evaluator.matthews_corrcoef(oof_y_true, (np.array(oof_y_pred) >= th).astype(int))
@@ -291,5 +268,26 @@ class BoschSolution:
 
 
 if __name__ == "__main__":
+    data_dir = '../RF'
+    print(f"当前工作目录: {os.getcwd()}")
+    print(f"尝试访问路径: {os.path.abspath(data_dir)}")
+
+    if not os.path.exists(data_dir):
+        print(f"错误: 目录 {data_dir} 不存在！")
+
+        os.makedirs(data_dir, exist_ok=True)
+        print(f"已创建目录: {data_dir}")
+
+    train_file = os.path.join(data_dir, 'train_numeric.csv')
+    if not os.path.exists(train_file):
+        print(f"错误: 文件 {train_file} 不存在！")
+        print("请确保 train_numeric.csv 文件在正确的目录中")
+    else:
+        print(f"找到文件: {train_file}")
+        if os.access(train_file, os.R_OK):
+            print("文件可读")
+        else:
+            print("文件不可读，请检查权限")
+
     sol = BoschSolution()
     sol.run_complete_pipeline()
