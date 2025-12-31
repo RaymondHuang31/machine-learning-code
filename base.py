@@ -11,11 +11,9 @@ import random
 
 
 class NumpyFunctions:
-    """手写实现numpy核心功能"""
 
     @staticmethod
     def mean(arr, axis=None):
-        """手写mean函数"""
         if axis is None:
             return sum(arr) / len(arr) if len(arr) > 0 else 0
         elif axis == 0:
@@ -25,7 +23,6 @@ class NumpyFunctions:
 
     @staticmethod
     def std(arr, axis=None, ddof=1):
-        """手写std函数"""
         if axis is None:
             mean_val = NumpyFunctions.mean(arr)
             variance = sum((x - mean_val) ** 2 for x in arr) / (len(arr) - ddof)
@@ -47,7 +44,6 @@ class NumpyFunctions:
 
     @staticmethod
     def concatenate(arrays, axis=0):
-        """手写concatenate函数"""
         if axis == 0:
             return [item for arr in arrays for item in arr]
         elif axis == 1:
@@ -55,7 +51,6 @@ class NumpyFunctions:
 
     @staticmethod
     def zeros(shape):
-        """手写zeros函数"""
         if isinstance(shape, int):
             return [0.0] * shape
         elif len(shape) == 1:
@@ -65,7 +60,6 @@ class NumpyFunctions:
 
     @staticmethod
     def ones(shape):
-        """手写ones函数"""
         if isinstance(shape, int):
             return [1.0] * shape
         elif len(shape) == 1:
@@ -75,7 +69,6 @@ class NumpyFunctions:
 
     @staticmethod
     def argmax(arr):
-        """手写argmax函数"""
         max_val = arr[0]
         max_idx = 0
         for i, val in enumerate(arr):
@@ -86,14 +79,12 @@ class NumpyFunctions:
 
     @staticmethod
     def argsort(arr, reverse=False):
-        """手写argsort函数"""
         indexed = list(enumerate(arr))
         indexed.sort(key=lambda x: x[1], reverse=reverse)
         return [i for i, _ in indexed]
 
     @staticmethod
     def matmul(A, B):
-        """手写矩阵乘法"""
         m, n = len(A), len(A[0])
         p = len(B[0])
         result = [[0.0] * p for _ in range(m)]
@@ -106,7 +97,6 @@ class NumpyFunctions:
 
     @staticmethod
     def transpose(matrix):
-        """手写矩阵转置"""
         if not matrix:
             return []
         n = len(matrix)
